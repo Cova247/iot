@@ -1,0 +1,51 @@
+- id: '1651275746359'
+  alias: CafeteriaOff
+  description: ''
+  trigger:
+  - platform: time
+    at: input_datetime.tiempo_de_apagado
+  condition: []
+  action:
+  - service: homeassistant.turn_off
+    data:
+      entity_id: switch.Cafeteria
+  mode: single
+- id: '1651355133900'
+  alias: MaquinariaOff
+  description: ''
+  trigger:
+  - platform: time
+    at: input_datetime.tiempo_de_apagado_maquinaria
+  condition: []
+  action:
+  - service: homeassistant.turn_off
+    data: {}
+    target:
+      entity_id: switch.Maquinaria
+  mode: single
+- id: '1651356020117'
+  alias: CafeteriaOn
+  description: ''
+  trigger:
+  - platform: time
+    at: input_datetime.tiempo_de_encendido_cafeteria
+  condition: []
+  action:
+  - service: homeassistant.turn_on
+    data: {}
+    target:
+      entity_id: switch.cafeteria
+  mode: single
+- id: '1651356064010'
+  alias: MaquinariaOn
+  description: ''
+  trigger:
+  - platform: time
+    at: input_datetime.tiempo_de_encendido_maquinaria
+  condition: []
+  action:
+  - service: homeassistant.turn_on
+    data: {}
+    target:
+      entity_id: switch.maquinaria
+  mode: single

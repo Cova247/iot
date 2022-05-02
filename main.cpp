@@ -2,31 +2,13 @@
 #include <Adafruit_ADS1X15.h>
 #include <Wire.h>
 #include "Secrets.h"
-#include <WiFi.h>
-#include <PubSubClient.h>
-#include <ArduinoJson.h>
-#include "WiFi.h"
 
-//MQTT Home assistant
-String client_id;
-const char *mqtt_broker = "192.168.3.6";
-  //Topics
-      /*Publish*/
-const char *power_pub_topic = "/iot/e2/power/pub"; 
-const char *power_pub_laptop = "/iot/e2/power/pub/laptop"; 
-const char *power_pub_ventilador = "/iot/e2/power/pub/ventilador"; 
-      /*Subscribe*/
-const char *foco_sub_topic = "/iot/e2/execute/foco"; 
-const char *laptop_sub_topic = "/iot/e2/execute/laptop";
-const char *ventilador_sub_topic = "/iot/e2/execute/ventilador";
-  /* Status */
-const char *foco_status_topic = "/iot/e2/status/foco"; 
-const char *laptop_status_topic = "/iot/e2/status/laptop";
-const char *ventilador_status_topic = "/iot/e2/status/ventilador";
-//Username, password and port
-const char *mqtt_username = "homeassistant";
-const char *mqtt_password = "yae4oothaeGhaengieceecogh2ieghujafienguniovix8eeNg6ieYaegh0ohviz";
-const int mqtt_port = 1883; 
+//RELAY PINS
+#define IN1_R 33
+#define IN2_R 25
+#define IN3_R 26
+#define IN4_R 27 
+#define LED_STATUS  2
 
  //ADC object
 Adafruit_ADS1115 ads;
@@ -36,8 +18,6 @@ const float Factor_100 = 100.0;
 const float VRMS = 127.0;
 const float mult = 0.092857F;
 
-WiFiClient espClient;
-PubSubClient client(espClient);
 //Functions definitions 
 void callback(char* topic, byte* payload, unsigned int length);
 void setup_wifi();
@@ -55,12 +35,29 @@ void setup() {
   Serial.print("   SCL=");
   Serial.println(SCL);
   ads.setGain(GAIN_TWO);
+  pinMode(IN1_R, OUTPUT);
+  pinMode(IN2_R, OUTPUT);
+  pinMode(IN3_R, OUTPUT);
+  pinMode(IN4_R, OUTPUT);
+  pinMode(2, OUTPUT);
+  digitalWrite(IN1_R, HIGH);
+  digitalWrite(IN2_R, HIGH);
+  digitalWrite(IN3_R, HIGH);
+  digitalWrite(IN4_R, HIGH);
+  digitalWrite(LED_STATUS,LOW);
   while(!ads.begin(0x48)) {
     Serial.println("Failed to initialize ADS.");
     delay(500);
   }
   setup_wifi();
   setup_mqtt();
+  digitalWrite(IN1_R, LOW);
+  digitalWrite(IN2_R, LOW);
+  digitalWrite(IN3_R, LOW);
+  digitalWrite(IN4_R, LOW);
+  digitalWrite(LED_STATUS,HIGH);
+  delay(500);
+  digitalWrite(LED_STATUS,LOW);
 }
  
 void loop() {
@@ -68,8 +65,8 @@ void loop() {
   float Current_L, Power_L;
   float Current_V, Power_V;
   float Current_total, Power_total;
-  char buf_p_laptop[16];
-  char buf_p_ventilador[16];
+  char buf_p_cafeteria[16];
+  char buf_p_maquinaria[16];
   char buf_p_total[16];
   address = 72;
 
@@ -89,19 +86,19 @@ void loop() {
       Serial.println(address,HEX);
       Current_L = getCurrent();
       Power_L = VRMS * Current_L;
-      Serial.print("\tLaptop current: ");
+      Serial.print("\tCafeteria current: ");
       Serial.print(Current_L, 4);
       Serial.println(" A ");
-      Serial.print("\tLaptop power: ");
+      Serial.print("\tCafeteria power: ");
       Serial.print(Power_L, 4);
       Serial.println(" W ");
       Serial.println();
       Current_V = getCurrent_100();
       Power_V = VRMS  * Current_V;
-      Serial.print("\tFan current: ");
+      Serial.print("\tMachines current: ");
       Serial.print(Current_V, 4);
       Serial.println(" A ");
-      Serial.print("\tFan power: ");
+      Serial.print("\tMachines power: ");
       Serial.print(Power_V, 4);
       Serial.println(" W ");
       Serial.println();
@@ -114,11 +111,11 @@ void loop() {
       Serial.print(Power_total, 4);
       Serial.println(" W ");
       Serial.println();
-      dtostrf(Power_L, 5, 2, buf_p_laptop);
-      dtostrf(Power_V, 5, 2, buf_p_ventilador);
+      dtostrf(Power_L, 5, 2, buf_p_cafeteria);
+      dtostrf(Power_V, 5, 2, buf_p_maquinaria);
       dtostrf(Power_total, 5, 2, buf_p_total);
-      client.publish(power_pub_laptop,buf_p_laptop);
-      client.publish(power_pub_ventilador,buf_p_ventilador);
+      client.publish(power_pub_cafeteria,buf_p_cafeteria);
+      client.publish(power_pub_maquinaria,buf_p_maquinaria);
       client.publish(power_pub_topic,buf_p_total);
   }
   else if (error==4) {
@@ -128,7 +125,10 @@ void loop() {
   else {
     Serial.println("I2C device not found.");    
   }
-  delay(1000);          
+  delay(500);
+  digitalWrite(LED_STATUS,LOW);
+  delay(500);       
+  digitalWrite(LED_STATUS,HIGH);
 }
 
 void callback(char* topic, byte* payload, unsigned int length) {
@@ -142,6 +142,35 @@ void callback(char* topic, byte* payload, unsigned int length) {
   }
   Serial.println();
   Serial.println("-----------------");
+
+  if((String)topic == (String)cafeteria_sub_topic)
+  {
+    Serial.println("CAFETERIA TOPIC");
+    if ((char)payload[0] == '1') 
+    {
+      digitalWrite(IN4_R, HIGH);
+      Serial.println("  CAFETERIA ON");
+    }   
+    else 
+    { 
+      digitalWrite(IN4_R, LOW);
+      Serial.println("  CAFETERIA OFF"); 
+      } 
+  }
+  else if((String)topic == (String)maquinaria_sub_topic)
+  {
+    Serial.println("MAQUINARIA TOPIC");
+    if ((char)payload[0] == '1') 
+    {
+      digitalWrite(IN2_R, HIGH);
+      Serial.println("  MAQUINARIA ON");
+    }   
+    else 
+    { 
+      digitalWrite(IN2_R, LOW);
+      Serial.println("  MAQUINARIA OFF");
+      } 
+  }
 }
 void setup_wifi() {
   Serial.print("Connecting to ");
@@ -168,8 +197,8 @@ void setup_mqtt() {
   }
   client.publish(power_pub_topic, "1");
   client.subscribe(foco_sub_topic);
-  client.subscribe(laptop_sub_topic);
-  client.subscribe(ventilador_sub_topic);
+  client.subscribe(cafeteria_sub_topic);
+  client.subscribe(maquinaria_sub_topic);
 }
 void reconnect() {
   while (!client.connected()) {
@@ -196,7 +225,6 @@ float getCurrent() {
   while(millis() - time < 1000)
   {
     V = ads.readADC_Differential_0_1() * mult;
-    //Serial.println(V);
     C = V * Factor;
     C = C / 1000.0;
 
